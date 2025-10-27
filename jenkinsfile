@@ -1,0 +1,60 @@
+pipeline {
+    agent { label 'linuxgit' }
+
+    environment {
+        GIT_REPO = 'https://github.com/venkypv168-ship-it/Docker-demo-project.git'
+        BRANCH = 'main'
+        IMAGE_NAME_1 = 'venkypv168/go-sample'
+        IMAGE_NAME_2 = 'venkypv168/java-sample'
+        IMAGE_NAME_3 = 'venkypv168/python-sample'
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git branch: "${BRANCH}",
+                    url: "${GIT_REPO}",
+                    credentialsId: 'docker_token'
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub_token', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo $DOCKER_PASS | sudo docker login -u $DOCKER_USER --password-stdin'
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                script {
+                    sh """
+                        cd app1
+                        sudo docker build -t ${IMAGE_NAME_1}:latest .
+                        cd ../app2
+                        sudo docker build -t ${IMAGE_NAME_2}:latest .
+                        cd ../app3
+                        sudo docker build -t ${IMAGE_NAME_3}:latest .
+                    """
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    sh """
+                        sudo docker push ${IMAGE_NAME_1}:latest
+                        sudo docker push ${IMAGE_NAME_2}:latest
+                        sudo docker push ${IMAGE_NAME_3}:latest
+                        sudo docker logout
+                    """
+                }
+            }
+        }
+    }
+}
+
